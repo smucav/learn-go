@@ -2,24 +2,27 @@ package main
 
 import (
 	"fmt"
-	"math"
 )
 
 func Sqrt(x float64) float64 {
-	// implementation for custom square root
 	var z float64 = 1
-	var i int = 0
-	for i < 10 {
+	var i int = 1
+	for i < 20 {
 		z = z - (z*z-x)/(2*z)
-		if math.Abs(z*z-x) < 1e-9 {
+		if (z*z - x) < 1e-15 {
 			return z
 		}
-		fmt.Printf("z = %v\n", z)
+		fmt.Printf("%v\n", z)
 		i += 1
 	}
 	return z
 }
 
 func main() {
-	fmt.Println(Sqrt(4))
+	var x int
+	for {
+		fmt.Printf("> ")
+		fmt.Scan(&x)
+		fmt.Println(Sqrt(float64(x)))
+	}
 }
