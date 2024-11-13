@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"strings"
+	// "strings"
 )
 
 // type Person struct {
@@ -17,15 +17,32 @@ import (
 // )
 
 type Vertex struct {
-	X, Y int
+	Lat, Long float64
+}
+
+type Person struct {
+	graduated bool
+	age       int
+	married   bool
 }
 
 var (
-	v1 = Vertex{1, 2}  // X = 1, Y = 2
-	v2 = Vertex{X: 1}  // X = 1, Y = 0
-	p  = &Vertex{1, 2} // pointer to struct value
-	v3 = Vertex{}      // X = 0, Y = 0
+	m = map[string]Vertex{
+		"Bell Labs": {40.68433, -74.39967},
+		"Google":    {37.42202, -122.08408},
+	}
+	p1 = map[string]Person{
+		"Daniel": {true, 24, false},
+		"Tujuma": {true, 40, true},
+	}
 )
+
+// var (
+// 	v1 = Vertex{1, 2}  // X = 1, Y = 2
+// 	v2 = Vertex{X: 1}  // X = 1, Y = 0
+// 	p  = &Vertex{1, 2} // pointer to struct value
+// 	v3 = Vertex{}      // X = 0, Y = 0
+// )
 
 func main() {
 	// my first pointer in go
@@ -69,7 +86,7 @@ func main() {
 
 	// fmt.Println((*ptr).Name)
 
-	fmt.Println(v1, v2, v3, *p)
+	// fmt.Println(v1, v2, v3, *p)
 
 	var name [3]string
 
@@ -127,38 +144,56 @@ func main() {
 
 	//Making board
 
-	board := [][]string{
-		[]string{"_", "_", "_"},
-		[]string{"_", "_", "_"},
-		[]string{"_", "_", "_"},
-	}
+	// board := [][]string{
+	// 	[]string{"_", "_", "_"},
+	// 	[]string{"_", "_", "_"},
+	// 	[]string{"_", "_", "_"},
+	// }
 
-	board[0][2] = "x"
-	board[1][1] = "x"
-	board[2][0] = "x"
+	// board[0][2] = "x"
+	// board[1][1] = "x"
+	// board[2][0] = "x"
 
-	fmt.Printf("the length of board = %d\n", len(board))
+	// fmt.Printf("the length of board = %d\n", len(board))
 
-	for i := 0; i < len(board); i++ {
-		fmt.Printf("%s\n", strings.Join(board[i], " "))
-	}
+	// for i := 0; i < len(board); i++ {
+	// 	fmt.Printf("%s\n", strings.Join(board[i], " "))
+	// }
 
-	for index, value := range board {
-		fmt.Printf("index = %d, value = %v\n", index, strings.Join(value, " "))
-	}
+	// for index, value := range board {
+	// 	fmt.Printf("index = %d, value = %v\n", index, strings.Join(value, " "))
+	// }
 
-	powers := make([]int, 10)
+	// powers := make([]int, 10)
 
-	for i := range powers {
-		powers[i] = 1 << i
-	}
-	for _, value := range powers {
-		fmt.Printf("%d ", value)
-	}
-	fmt.Printf("\n")
+	// for i := range powers {
+	// 	powers[i] = 1 << i
+	// }
+	// for _, value := range powers {
+	// 	fmt.Printf("%d ", value)
+	// }
+	// fmt.Printf("\n")
+
+	rank := make(map[string]int)
+
+	rank["daniel"] = 1
+	rank["tujuma"] = 10
+
+	fmt.Printf("before delete\n")
+
+	fmt.Println(rank)
+
+	delete(rank, "tujuma")
+
+	fmt.Printf("after delete\n")
+
+	result, check := rank["tujuma"]
+
+	fmt.Printf("the result for tujuma = %d and Present? %v\n", result, check)
+
+	fmt.Println(rank)
 
 }
-
 func printSlice(s string, x []int) {
 	fmt.Printf("%s len = %d cap = %d %v\n", s, len(x), cap(x), x)
 }
