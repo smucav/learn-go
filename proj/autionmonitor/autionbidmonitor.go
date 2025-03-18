@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -24,17 +25,19 @@ func (fe *FetchError) Error() string {
 	return fmt.Sprintf("From %s Failed: %s\n", fe.Source, fe.Reason)
 }
 
-type MockStock struct{}
+type MockStock struct {
+	prices map[string]float64
+	mu     sync.Mutex
+}
 
 func (ms *MockStock) FetchPrice(symbol string) (float64, error) {
-	prices := map[string]float64{
-		"AAPL":  230.01,
-		"GOGLE": 150.02,
-	}
-	price, err := prices[symbol]
+	ms.mu.Lock()
+	defer ms.mu.Unlock()
+	price, err := ms.prices[symbol]
 	if !err {
 		return 0, &FetchError{Source: ms.Name(), Reason: "Can't find symbol"}
 	}
+	price += float64(time.Now().Nanosecond()%10) / 10
 	return price, nil
 }
 
@@ -85,8 +88,11 @@ func (a *Auction) Run(wg *sync.WaitGroup, signal chan<- bool) {
 	a.cache.Store(sym, a.currentBid.Amount)
 	defer wg.Done()
 
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	timer := time.NewTimer(15 * time.Second)
 	for {
-		timer := time.NewTimer(15 * time.Second)
+
 		select {
 		case bid := <-a.bidCh:
 			a.mu.Lock()
@@ -98,7 +104,23 @@ func (a *Auction) Run(wg *sync.WaitGroup, signal chan<- bool) {
 			a.mu.Unlock()
 			if !timer.Stop() {
 				<-timer.C
+			} else {
+				timer.Reset(15 * time.Second)
 			}
+		case <-ticker.C:
+			switch v := a.fetcher.(type) {
+			case *MockStock:
+				v.prices[sym] = a.currentBid.Amount
+			default:
+				fmt.Println("no match")
+			}
+			price, err := a.fetcher.FetchPrice(sym)
+			if err != nil {
+				fmt.Printf("Error fetching %s\n", sym)
+				continue
+			}
+
+			fmt.Printf("New price for %s is $%.2f\n", sym, price)
 		case <-timer.C:
 			signal <- true
 			close(signal)
@@ -109,7 +131,9 @@ func (a *Auction) Run(wg *sync.WaitGroup, signal chan<- bool) {
 
 func main() {
 	var wg sync.WaitGroup
-	fetcher := &MockStock{}
+	fetcher := &MockStock{
+		prices: map[string]float64{"AAPL": 230.01, "GOOGL": 150.02},
+	}
 	auction := NewAuction(fetcher)
 	sym := "AAPL"
 	price, err := fetcher.FetchPrice(sym)
@@ -170,6 +194,7 @@ func HandleConnection(conn net.Conn, wg *sync.WaitGroup, auction *Auction, signa
 		case input, ok := <-inputCh:
 			if !ok {
 				fmt.Println("Input channel closed")
+				os.Exit(1)
 				return
 			}
 			if input == "exit" {
