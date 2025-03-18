@@ -1,51 +1,3 @@
-// package main
-
-// import (
-// 	"bufio"
-// 	"fmt"
-// 	"net"
-// 	"os"
-// 	"strings"
-// )
-
-// func main() {
-// 	conn, err := net.Dial("tcp", "localhost:8080")
-// 	if err != nil {
-// 		panic(err)
-// 	}
-
-// 	defer conn.Close()
-
-// 	scanner := bufio.NewScanner(os.Stdin)
-
-// 	go ListenServerMessage(conn)
-
-// 	for {
-// 		fmt.Print("Enter your bid: ")
-// 		scanner.Scan()
-// 		text := scanner.Text()
-
-// 		if text == "exit" {
-// 			break
-// 		}
-
-// 		fmt.Fprintln(conn, text)
-// 	}
-// }
-
-//	func ListenServerMessage(conn net.Conn) {
-//		reader := bufio.NewReader(os.Stdin)
-//		for {
-//			message, err := reader.ReadString('\n')
-//			if err != nil {
-//				panic(err)
-//			}
-//			message = strings.TrimSpace(message)
-//			if message == "EXIT" {
-//				os.Exit(0)
-//			}
-//		}
-//	}
 package main
 
 import (
@@ -99,7 +51,7 @@ func listenForServerMessages(conn net.Conn) {
 		message = strings.TrimSpace(message)
 
 		if message == "EXIT" {
-			fmt.Println("Server is shutting down... Exiting client.")
+			fmt.Println("\nServer is shutting down... Exiting client.")
 			os.Exit(0)
 		}
 
