@@ -45,8 +45,8 @@ func (ms *MockStock) FetchPrice(symbol string) (float64, error) {
 	// to avoid any race condition use mutex
 	ms.mu.Lock()
 	defer ms.mu.Unlock()
-	price, err := ms.prices[symbol]
-	if !err {
+	price, ok := ms.prices[symbol]
+	if !ok {
 		return 0, &FetchError{Source: ms.Name(), Reason: "Can't find symbol"}
 	}
 
@@ -75,7 +75,7 @@ func NewPriceCache[T any]() *PriceCache[T] {
 // store price with the symbol we are fetching for example AAPL: 240
 func (pc *PriceCache[T]) Store(key string, value T) {
 	pc.mu.Lock()
-	pc.mu.Unlock()
+	defer pc.mu.Unlock()
 	pc.cache[key] = value
 }
 
@@ -84,21 +84,40 @@ type Bid struct {
 	Amount float64
 }
 
+type BidResult struct {
+	Valid  bool
+	Amount float64
+}
+
 // data structure to manage bid with auction
 type Auction struct {
-	fetcher    StockFetcher
-	currentBid Bid
-	bidCh      chan Bid
-	cache      *PriceCache[float64]
-	mu         sync.Mutex
+	fetcher     StockFetcher
+	currentBid  Bid
+	bidCh       chan Bid
+	bidResultCh chan BidResult
+	cache       *PriceCache[float64]
+	mu          sync.Mutex
 }
 
 // initilize new Auction
 func NewAuction(fetcher StockFetcher) *Auction {
 	return &Auction{
-		fetcher: fetcher,
-		bidCh:   make(chan Bid, 10),
-		cache:   NewPriceCache[float64](),
+		fetcher:     fetcher,
+		bidCh:       make(chan Bid, 10),
+		bidResultCh: make(chan BidResult, 10),
+		cache:       NewPriceCache[float64](),
+	}
+}
+
+func (a *Auction) BidWorkers(id int, wgWorkers *sync.WaitGroup) {
+	defer wgWorkers.Done()
+	for bid := range a.bidCh {
+		fmt.Printf("Worker %d processing bid $%.2f for %s\n", id, bid.Amount, bid.Symbol)
+		time.Sleep(1 * time.Second)
+		a.mu.Lock()
+		valid := bid.Amount > a.currentBid.Amount
+		a.mu.Unlock()
+		a.bidResultCh <- BidResult{Valid: valid, Amount: bid.Amount}
 	}
 }
 
@@ -107,20 +126,28 @@ func (a *Auction) Run(wg *sync.WaitGroup, signal chan<- bool) {
 	defer wg.Done()
 	fmt.Println("Auction started..")
 	sym := a.currentBid.Symbol
-	fmt.Printf("Current bid $%.2f of %s\n", a.currentBid.Amount, sym)
+	fmt.Printf("Cunrrent bid $%.2f of %s\n", a.currentBid.Amount, sym)
 	a.cache.Store(sym, a.currentBid.Amount)
 
 	// we use ticker here to visualize the change of price in stock
 	ticker := time.NewTicker(2 * time.Second)
-	// close ticker to it will not lick resources
+	// close ticker too so it will not lick resources
 	defer ticker.Stop()
 	timer := time.NewTimer(15 * time.Second) // 15 second window for bid
+
+	// worker pools that process each bid
+	var wgWorkers sync.WaitGroup
+	for i := 1; i <= 3; i++ {
+		wgWorkers.Add(1)
+		go a.BidWorkers(i, &wgWorkers)
+	}
+
 	for {
 		// while loop to listen for if new bid comes
 		select {
-		case bid := <-a.bidCh:
+		case bid := <-a.bidResultCh:
 			a.mu.Lock()
-			if bid.Amount > a.currentBid.Amount {
+			if bid.Valid {
 				fmt.Printf("New bid $%.2f\n", bid.Amount)
 				a.cache.Store(sym, bid.Amount)
 				a.currentBid.Amount = bid.Amount
@@ -215,6 +242,7 @@ func main() {
 
 	// use this flag to separate concern from getting client or no client there
 	var flag bool = false
+
 	for {
 		select {
 		case conn := <-connCh:
@@ -291,8 +319,6 @@ func HandleConnection(conn net.Conn, wg *sync.WaitGroup, auction *Auction, signa
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				auction.mu.Lock()
-				defer auction.mu.Unlock()
 				auction.bidCh <- Bid{Symbol: "AAPL", Amount: float64(bid)}
 			}()
 		}
